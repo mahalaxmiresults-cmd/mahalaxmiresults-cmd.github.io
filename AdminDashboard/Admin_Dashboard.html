@@ -64,51 +64,60 @@ function loadGrid() {
         const data = snapshot.val();
         if (!data) return;
 
+        const rows = [];
+
         for (let city in data) {
             for (let dateTime in data[city]) {
                 const number = data[city][dateTime].number;
 
-                const tr = document.createElement("tr");
-                tr.innerHTML = `
-                    <td>${city}</td>
-                    <td>${dateTime.replace("T"," ")}</td>
-                    <td>
-                        <input type="number" value="${number}" disabled class="grid-input">
-                    </td>
-                    <td>
-                        <button class="edit-btn">Edit</button>
-                    </td>
-                `;
-
-                const input = tr.querySelector(".grid-input");
-                const btn = tr.querySelector(".edit-btn");
-
-                btn.onclick = () => {
-                    if (btn.innerText === "Edit") {
-                        input.disabled = false;
-                        input.focus();
-                        btn.innerText = "Save";
-                        btn.style.background = "#ff9800";
-                    } else {
-                        if (input.value === "") {
-                            alert("Result required!");
-                            return;
-                        }
-
-                        // UPDATE SAME FIREBASE RECORD
-                        set(ref(db, `results/${city}/${dateTime}`), {
-                            number: input.value
-                        }).then(() => {
-                            input.disabled = true;
-                            btn.innerText = "Edit";
-                            btn.style.background = "#4caf50";
-                        });
-                    }
-                };
-
-                gridBody.appendChild(tr);
+                rows.push({ city, dateTime, number });
             }
         }
+
+        // Sort descending by dateTime
+        rows.sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
+
+        rows.forEach(row => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${row.city}</td>
+                <td>${row.dateTime.replace("T"," ")}</td>
+                <td>
+                    <input type="number" value="${row.number}" disabled class="grid-input">
+                </td>
+                <td>
+                    <button class="edit-btn">Edit</button>
+                </td>
+            `;
+
+            const input = tr.querySelector(".grid-input");
+            const btn = tr.querySelector(".edit-btn");
+
+            btn.onclick = () => {
+                if (btn.innerText === "Edit") {
+                    input.disabled = false;
+                    input.focus();
+                    btn.innerText = "Save";
+                    btn.style.background = "#ff9800";
+                } else {
+                    if (input.value === "") {
+                        alert("Result required!");
+                        return;
+                    }
+
+                    // UPDATE SAME FIREBASE RECORD
+                    set(ref(db, `results/${row.city}/${row.dateTime}`), {
+                        number: input.value
+                    }).then(() => {
+                        input.disabled = true;
+                        btn.innerText = "Edit";
+                        btn.style.background = "#4caf50";
+                    });
+                }
+            };
+
+            gridBody.appendChild(tr);
+        });
     });
 }
 
@@ -238,3 +247,4 @@ th {
 
 </body>
 </html>
+
