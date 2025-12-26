@@ -9,6 +9,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-app.js";
 import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.1.0/firebase-database.js";
 
+/* ================= FIREBASE ================= */
 const firebaseConfig = {
   apiKey: "AIzaSyA39tWy3eQ7sImuHthW36icGSRdcCbH_CE",
   databaseURL: "https://mahalaxmi-result-default-rtdb.firebaseio.com"
@@ -17,23 +18,23 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// FORM ELEMENTS
-const citySelect = document.querySelector("select");
+/* ================= ELEMENTS ================= */
+const citySelect = document.getElementById("citySelect");
 const dateInput = document.getElementById("dateInput");
 const timeInput = document.getElementById("timeInput");
 const resultInput = document.getElementById("resultInput");
 const updateBtn = document.querySelector(".update-btn");
 const gridBody = document.getElementById("gridBody");
 
-// Auto date
+const filterCity = document.getElementById("filterCity");
+const filterDate = document.getElementById("filterDate");
+const filterBtn = document.getElementById("filterBtn");
+
+/* ================= DEFAULT DATE ================= */
 dateInput.value = new Date().toISOString().split("T")[0];
 
-
-// ===================
-// SAVE FROM FORM
-// ===================
+/* ================= SAVE NEW RESULT ================= */
 updateBtn.addEventListener("click", () => {
-
     const city = citySelect.value;
     const date = dateInput.value;
     const time = timeInput.value;
@@ -45,20 +46,19 @@ updateBtn.addEventListener("click", () => {
     }
 
     const dateTime = `${date}T${time}`;
+    const now = new Date().toISOString().replace("T"," ").substring(0,16);
 
     set(ref(db, `results/${city}/${dateTime}`), {
-        number: result
+        number: result,
+        modifiedAt: now
     }).then(() => {
         alert("Saved Successfully!");
         resultInput.value = "";
     });
 });
 
-
-// ===================
-// LOAD GRID + INLINE EDIT
-// ===================
-function loadGrid() {
+/* ================= LOAD GRID ================= */
+function loadGrid(cityFilter = "", dateFilter = "") {
     onValue(ref(db, "results"), snapshot => {
         gridBody.innerHTML = "";
         const data = snapshot.val();
@@ -67,27 +67,32 @@ function loadGrid() {
         const rows = [];
 
         for (let city in data) {
-            for (let dateTime in data[city]) {
-                const number = data[city][dateTime].number;
+            if (cityFilter && city !== cityFilter) continue;
 
-                rows.push({ city, dateTime, number });
+            for (let dateTime in data[city]) {
+                if (dateFilter && !dateTime.startsWith(dateFilter)) continue;
+
+                const item = data[city][dateTime];
+
+                rows.push({
+                    city,
+                    dateTime,
+                    number: item.number,
+                    modifiedAt: item.modifiedAt || "-"
+                });
             }
         }
 
-        // Sort descending by dateTime
-        rows.sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
+        rows.sort((a,b)=> new Date(b.dateTime) - new Date(a.dateTime));
 
         rows.forEach(row => {
             const tr = document.createElement("tr");
             tr.innerHTML = `
                 <td>${row.city}</td>
                 <td>${row.dateTime.replace("T"," ")}</td>
-                <td>
-                    <input type="number" value="${row.number}" disabled class="grid-input">
-                </td>
-                <td>
-                    <button class="edit-btn">Edit</button>
-                </td>
+                <td><input type="number" value="${row.number}" disabled class="grid-input"></td>
+                <td>${row.modifiedAt}</td>
+                <td><button class="edit-btn">Edit</button></td>
             `;
 
             const input = tr.querySelector(".grid-input");
@@ -105,9 +110,11 @@ function loadGrid() {
                         return;
                     }
 
-                    // UPDATE SAME FIREBASE RECORD
+                    const now = new Date().toISOString().replace("T"," ").substring(0,16);
+
                     set(ref(db, `results/${row.city}/${row.dateTime}`), {
-                        number: input.value
+                        number: input.value,
+                        modifiedAt: now
                     }).then(() => {
                         input.disabled = true;
                         btn.innerText = "Edit";
@@ -121,56 +128,54 @@ function loadGrid() {
     });
 }
 
+/* ================= FILTER ================= */
+filterBtn.onclick = () => {
+    loadGrid(filterCity.value, filterDate.value);
+};
+
+/* INITIAL LOAD */
 loadGrid();
 </script>
 
 <style>
 body {
-    margin: 0;
-    padding: 0;
     font-family: Arial;
     background: #1e2633;
     color: #fff;
 }
 .container {
     width: 95%;
-    max-width: 600px;
-    margin: 40px auto;
-}
-h2 {
-    text-align: center;
+    max-width: 800px;
+    margin: 30px auto;
 }
 .form-card {
     background: #2c3444;
     padding: 20px;
     border-radius: 8px;
+    margin-bottom: 20px;
 }
 label {
     display: block;
-    margin-bottom: 5px;
+    margin-top: 10px;
 }
 select, input {
     width: 100%;
     padding: 10px;
-    margin-bottom: 15px;
     background: #1f2733;
     border: none;
     color: #fff;
 }
 .update-btn {
-    width: 100%;
+    margin-top: 15px;
     padding: 12px;
+    width: 100%;
     background: #ff3f7f;
     border: none;
     color: #fff;
     cursor: pointer;
-    font-size: 16px;
 }
-
-/* GRID */
 table {
     width: 100%;
-    margin-top: 30px;
     border-collapse: collapse;
     background: #2c3444;
 }
@@ -184,7 +189,6 @@ th {
 }
 .grid-input {
     width: 70px;
-    padding: 5px;
     background: #1f2733;
     border: none;
     color: #fff;
@@ -201,14 +205,13 @@ th {
 </head>
 
 <body>
-
 <div class="container">
     <h2>Result Update</h2>
 
-    <!-- FORM (NEW ENTRY) -->
+    <!-- ADD RESULT -->
     <div class="form-card">
         <label>City</label>
-        <select>
+        <select id="citySelect">
             <option>FARIDABAD</option>
             <option>MAHA LAXMI</option>
             <option>GURGAON</option>
@@ -226,25 +229,45 @@ th {
         <input type="time" id="timeInput">
 
         <label>Result</label>
-        <input id="resultInput" type="number" placeholder="Result Number">
+        <input type="number" id="resultInput">
 
         <button class="update-btn">UPDATE</button>
     </div>
 
-    <!-- GRID (EDIT EXISTING) -->
+    <!-- FILTER -->
+    <div class="form-card">
+        <label>Filter City</label>
+        <select id="filterCity">
+            <option value="">ALL</option>
+            <option>FARIDABAD</option>
+            <option>MAHA LAXMI</option>
+            <option>GURGAON</option>
+            <option>DELHI BAZAAR</option>
+            <option>SHREE GANESH</option>
+            <option>GALI</option>
+            <option>DISAWAR</option>
+            <option>GHAZIABAD</option>
+        </select>
+
+        <label>Filter Date</label>
+        <input type="date" id="filterDate">
+
+        <button class="update-btn" id="filterBtn">FILTER</button>
+    </div>
+
+    <!-- GRID -->
     <table>
         <thead>
             <tr>
                 <th>City</th>
                 <th>Date & Time</th>
                 <th>Result</th>
+                <th>Modified At</th>
                 <th>Action</th>
             </tr>
         </thead>
         <tbody id="gridBody"></tbody>
     </table>
 </div>
-
 </body>
 </html>
-
